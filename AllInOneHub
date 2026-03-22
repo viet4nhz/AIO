@@ -473,14 +473,33 @@ local function buildUI()
   if pg==cur then local a=Instance.new("Frame",b);a.Size=UDim2.new(0,2,0,20);a.Position=UDim2.new(0,0,0.5,-10);a.BackgroundColor3=K.acc;a.BorderSizePixel=0;tbs[pg].a=a end
   b.MouseButton1Click:Connect(function()
    if cur==pg then return end
-   if pages[cur] then pages[cur].Visible=false end
+   -- fade out old page
+   local oldPg=pages[cur]
+   if oldPg then
+    if oldPg:IsA("ScrollingFrame") or oldPg:IsA("Frame") then
+     TS:Create(oldPg,TweenInfo.new(.1),{BackgroundTransparency=1}):Play()
+     task.delay(.1,function() if oldPg then oldPg.Visible=false;oldPg.BackgroundTransparency=1 end end)
+    else oldPg.Visible=false end
+   end
    if tbs[cur].a then tbs[cur].a:Destroy();tbs[cur].a=nil end
-   TS:Create(tbs[cur].b,TweenInfo.new(.1),{BackgroundColor3=K.tab}):Play()
-   TS:Create(tbs[cur].t,TweenInfo.new(.1),{TextColor3=K.sub}):Play()
-   cur=pg;pages[cur].Visible=true
-   TS:Create(b,TweenInfo.new(.1),{BackgroundColor3=K.sel}):Play()
-   TS:Create(tl2,TweenInfo.new(.1),{TextColor3=K.txt}):Play()
-   local ac=Instance.new("Frame",b);ac.Size=UDim2.new(0,2,0,20);ac.Position=UDim2.new(0,0,0.5,-10);ac.BackgroundColor3=K.acc;ac.BorderSizePixel=0;tbs[pg].a=ac
+   TS:Create(tbs[cur].b,TweenInfo.new(.12),{BackgroundColor3=K.tab}):Play()
+   TS:Create(tbs[cur].t,TweenInfo.new(.12),{TextColor3=K.sub}):Play()
+   cur=pg
+   local newPg=pages[cur]
+   -- slide in new page from slight offset
+   if newPg then
+    newPg.Visible=true
+    if newPg:IsA("ScrollingFrame") then
+     newPg.Position=UDim2.new(0,TW+1+8,0,35)
+     newPg.BackgroundTransparency=1
+     TS:Create(newPg,TweenInfo.new(.18,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Position=UDim2.new(0,TW+1,0,35),BackgroundTransparency=1}):Play()
+    end
+   end
+   TS:Create(b,TweenInfo.new(.12),{BackgroundColor3=K.sel}):Play()
+   TS:Create(tl2,TweenInfo.new(.12),{TextColor3=K.txt}):Play()
+   -- accent indicator: animate height grow
+   local ac=Instance.new("Frame",b);ac.Size=UDim2.new(0,2,0,0);ac.Position=UDim2.new(0,0,0.5,0);ac.BackgroundColor3=K.acc;ac.BorderSizePixel=0;tbs[pg].a=ac
+   TS:Create(ac,TweenInfo.new(.18,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Size=UDim2.new(0,2,0,20),Position=UDim2.new(0,0,0.5,-10)}):Play()
   end)
  end
  mkTab("ESP","esp",1);mkTab("Aim","aim",2);mkTab("Cmd","cmd",3);mkTab("TP","tp",4)
@@ -496,8 +515,12 @@ local function buildUI()
   local btn=Instance.new("TextButton",row);btn.Size=UDim2.fromScale(1,1);btn.BackgroundTransparency=1;btn.Text=""
   btn.MouseButton1Click:Connect(function()
    local v=not gF();sF(v);if ex2 and not v then ex2() end
-   TS:Create(tr,TweenInfo.new(.12),{BackgroundColor3=v and K.onBg or K.off}):Play()
-   TS:Create(kn,TweenInfo.new(.12),{Position=v and UDim2.new(1,-14,.5,-5.5) or UDim2.new(0,3,.5,-5.5),BackgroundColor3=v and K.on or Color3.fromRGB(130,130,138)}):Play()
+   TS:Create(tr,TweenInfo.new(.15,Enum.EasingStyle.Quint),{BackgroundColor3=v and K.onBg or K.off}):Play()
+   -- overshoot knob position then settle (spring feel)
+   local endPos=v and UDim2.new(1,-14,.5,-5.5) or UDim2.new(0,3,.5,-5.5)
+   local overPos=v and UDim2.new(1,-11,.5,-5.5) or UDim2.new(0,6,.5,-5.5)
+   TS:Create(kn,TweenInfo.new(.1,Enum.EasingStyle.Quint),{Position=overPos,BackgroundColor3=v and K.on or Color3.fromRGB(130,130,138)}):Play()
+   task.delay(.1,function() TS:Create(kn,TweenInfo.new(.12,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Position=endPos}):Play() end)
   end)
  end
  local function mkSl(pg,lbl,gF,sF,mn,mx,cb)
@@ -507,9 +530,11 @@ local function buildUI()
   local vl=Instance.new("TextLabel",row);vl.Size=UDim2.new(.35,0,0,20);vl.Position=UDim2.new(.65,-10,0,4);vl.BackgroundTransparency=1;vl.TextColor3=K.acc;vl.Font=Enum.Font.GothamBold;vl.TextSize=12;vl.TextXAlignment=Enum.TextXAlignment.Right;vl.Text=tostring(gF())
   local trk=Instance.new("Frame",row);trk.Size=UDim2.new(1,-16,0,4);trk.Position=UDim2.new(0,8,0,32);trk.BackgroundColor3=K.off;trk.BorderSizePixel=0;Instance.new("UICorner",trk).CornerRadius=UDim.new(1,0)
   local fl=Instance.new("Frame",trk);fl.Size=UDim2.new((gF()-mn)/(mx-mn),0,1,0);fl.BackgroundColor3=K.acc;fl.BorderSizePixel=0;Instance.new("UICorner",fl).CornerRadius=UDim.new(1,0)
+  -- knob dot on slider end
+  local knob2=Instance.new("Frame",trk);knob2.Size=UDim2.new(0,10,0,10);knob2.AnchorPoint=Vector2.new(.5,.5);knob2.Position=UDim2.new((gF()-mn)/(mx-mn),0,.5,0);knob2.BackgroundColor3=K.on;knob2.BorderSizePixel=0;Instance.new("UICorner",knob2).CornerRadius=UDim.new(1,0)
   local btn=Instance.new("TextButton",trk);btn.Size=UDim2.fromScale(1,1);btn.BackgroundTransparency=1;btn.Text=""
   local drag=false
-  local function slide(mx2) local p=math.clamp((mx2-trk.AbsolutePosition.X)/trk.AbsoluteSize.X,0,1);local val=math.floor(mn+p*(mx-mn));sF(val);fl.Size=UDim2.new(p,0,1,0);vl.Text=tostring(val);if cb then cb(val) end end
+  local function slide(mx2) local p=math.clamp((mx2-trk.AbsolutePosition.X)/trk.AbsoluteSize.X,0,1);local val=math.floor(mn+p*(mx-mn));sF(val);fl.Size=UDim2.new(p,0,1,0);knob2.Position=UDim2.new(p,0,.5,0);vl.Text=tostring(val);if cb then cb(val) end end
   btn.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=true;slide(i.Position.X) end end)
   UIS.InputChanged:Connect(function(i) if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then slide(i.Position.X) end end)
   UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
@@ -521,7 +546,10 @@ local function buildUI()
  end
  -- Action button helper
  local function mkBtn(parent,lbl,x,y,w,h,bg,tc)
-  local b=Instance.new("TextButton",parent);b.Size=UDim2.new(0,w,0,h);b.Position=UDim2.new(0,x,0,y);b.BackgroundColor3=bg;b.BorderSizePixel=0;b.AutoButtonColor=false;b.TextColor3=tc;b.Font=Enum.Font.GothamBold;b.TextSize=11;b.Text=lbl;Instance.new("UICorner",b).CornerRadius=UDim.new(0,6);return b
+  local b=Instance.new("TextButton",parent);b.Size=UDim2.new(0,w,0,h);b.Position=UDim2.new(0,x,0,y);b.BackgroundColor3=bg;b.BorderSizePixel=0;b.AutoButtonColor=false;b.TextColor3=tc;b.Font=Enum.Font.GothamBold;b.TextSize=11;b.Text=lbl;Instance.new("UICorner",b).CornerRadius=UDim.new(0,6)
+  b.MouseButton1Down:Connect(function() TS:Create(b,TweenInfo.new(.07),{Size=UDim2.new(0,math.max(w-4,w*.92),0,math.max(h-2,h*.88))}):Play() end)
+  b.MouseButton1Up:Connect(function() TS:Create(b,TweenInfo.new(.14,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,w,0,h)}):Play() end)
+  return b
  end
 
  -- ===== ESP page =====
@@ -553,7 +581,8 @@ local function buildUI()
  local logLL=Instance.new("UIListLayout",logF);logLL.SortOrder=Enum.SortOrder.LayoutOrder;logLL.VerticalAlignment=Enum.VerticalAlignment.Bottom
  local lls={}
  local function addLog(m,c2)
-  local tl=Instance.new("TextLabel",logF);tl.Size=UDim2.new(1,-8,0,14);tl.BackgroundTransparency=1;tl.Font=Enum.Font.Code;tl.TextSize=10;tl.TextXAlignment=Enum.TextXAlignment.Left;tl.TextTruncate=Enum.TextTruncate.AtEnd;tl.TextColor3=c2 or K.sub;tl.Text="  "..m
+  local tl=Instance.new("TextLabel",logF);tl.Size=UDim2.new(1,-8,0,14);tl.BackgroundTransparency=1;tl.Font=Enum.Font.Code;tl.TextSize=10;tl.TextXAlignment=Enum.TextXAlignment.Left;tl.TextTruncate=Enum.TextTruncate.AtEnd;tl.TextColor3=Color3.fromRGB(50,50,55);tl.Text="  "..m
+  TS:Create(tl,TweenInfo.new(.22),{TextColor3=c2 or K.sub}):Play()
   table.insert(lls,tl);if #lls>5 then lls[1]:Destroy();table.remove(lls,1) end
  end
  addLog("> Ready")
@@ -595,6 +624,7 @@ local function buildUI()
   end
   for _,wp in ipairs(waypoints) do
    local r=Instance.new("Frame",tpPg);r.Size=UDim2.new(1,0,0,34);r.BackgroundColor3=K.row;r.BorderSizePixel=0
+   r.Position=UDim2.new(-0.1,0,0,0);TS:Create(r,TweenInfo.new(.2,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Position=UDim2.new(0,0,0,0)}):Play()
    local dv=Instance.new("Frame",r);dv.Size=UDim2.new(1,-16,0,1);dv.Position=UDim2.new(0,8,1,-1);dv.BackgroundColor3=K.div;dv.BorderSizePixel=0
    local nl=Instance.new("TextLabel",r);nl.Size=UDim2.new(.55,0,1,0);nl.Position=UDim2.new(0,10,0,0);nl.BackgroundTransparency=1;nl.TextColor3=K.txt;nl.Font=Enum.Font.Gotham;nl.TextSize=11;nl.TextXAlignment=Enum.TextXAlignment.Left;nl.Text=wp.name
    local wpRef=wp
@@ -648,7 +678,14 @@ local function buildUI()
   local function showToast(msg,good)
    toast.BackgroundColor3=good and Color3.fromRGB(20,60,28) or Color3.fromRGB(70,20,20)
    toast.TextColor3=good and Color3.fromRGB(80,220,110) or Color3.fromRGB(255,110,110)
-   toast.Text="  "..msg;toast.Visible=true;task.delay(2,function() toast.Visible=false end)
+   toast.Text="  "..msg
+   -- slide down from top edge
+   toast.Position=UDim2.new(0,0,0,-20);toast.Visible=true
+   TS:Create(toast,TweenInfo.new(.18,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Position=UDim2.new(0,0,0,0)}):Play()
+   task.delay(1.8,function()
+    TS:Create(toast,TweenInfo.new(.15),{Position=UDim2.new(0,0,0,-20)}):Play()
+    task.delay(.16,function() toast.Visible=false end)
+   end)
   end
   -- Tab list refresh
   local function rfExTabs()
@@ -729,7 +766,8 @@ local function buildUI()
    local full=prefix..msg
    table.insert(lgBuf2,full)
    if #lgBuf2>300 then table.remove(lgBuf2,1) end
-   local tl=Instance.new("TextLabel",lgSF);tl.Size=UDim2.new(1,-6,0,13);tl.BackgroundTransparency=1;tl.Font=Enum.Font.Code;tl.TextSize=10;tl.TextXAlignment=Enum.TextXAlignment.Left;tl.TextWrapped=false;tl.TextTruncate=Enum.TextTruncate.AtEnd;tl.TextColor3=c;tl.Text="  "..full;tl.LayoutOrder=#lgBuf2
+   local tl=Instance.new("TextLabel",lgSF);tl.Size=UDim2.new(1,-6,0,13);tl.BackgroundTransparency=1;tl.Font=Enum.Font.Code;tl.TextSize=10;tl.TextXAlignment=Enum.TextXAlignment.Left;tl.TextWrapped=false;tl.TextTruncate=Enum.TextTruncate.AtEnd;tl.TextColor3=Color3.fromRGB(0,0,0);tl.Text="  "..full;tl.LayoutOrder=#lgBuf2
+   TS:Create(tl,TweenInfo.new(.25),{TextColor3=c}):Play()
   end
   -- Populate from existing buffer
   for i=#logBuf,1,-1 do addLgLine(logBuf[i].t:sub(5),logBuf[i].k) end  -- skip prefix (already added)
@@ -768,7 +806,21 @@ local function buildUI()
   local aI,fP,tP2=nil,nil,nil
   FAB.InputBegan:Connect(function(i) if i.UserInputType~=Enum.UserInputType.Touch then return end;aI=i;fP=FAB.Position;tP2=Vector2.new(i.Position.X,i.Position.Y) end)
   FAB.InputChanged:Connect(function(i) if i~=aI then return end;FAB.Position=UDim2.new(fP.X.Scale,fP.X.Offset+(i.Position.X-tP2.X),fP.Y.Scale,fP.Y.Offset+(i.Position.Y-tP2.Y)) end)
-  FAB.InputEnded:Connect(function(i) if i~=aI then return end;if math.abs(i.Position.X-tP2.X)<10 and math.abs(i.Position.Y-tP2.Y)<10 then local op=not panel.Visible;panel.Visible=op;TS:Create(FAB,TweenInfo.new(.12),{BackgroundColor3=op and K.sel or K.panel}):Play() end;aI=nil end)
+  FAB.InputEnded:Connect(function(i)
+   if i~=aI then return end
+   if math.abs(i.Position.X-tP2.X)<10 and math.abs(i.Position.Y-tP2.Y)<10 then
+    local op=not panel.Visible
+    if op then
+     panel.Size=UDim2.new(0,W*.94,0,H*.94);panel.BackgroundTransparency=1;panel.Visible=true
+     TS:Create(panel,TweenInfo.new(.2,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),{Size=UDim2.new(0,W,0,H),BackgroundTransparency=0}):Play()
+    else
+     TS:Create(panel,TweenInfo.new(.15,Enum.EasingStyle.Quint),{Size=UDim2.new(0,W*.94,0,H*.94),BackgroundTransparency=1}):Play()
+     task.delay(.16,function() panel.Visible=false;panel.Size=UDim2.new(0,W,0,H);panel.BackgroundTransparency=0 end)
+    end
+    TS:Create(FAB,TweenInfo.new(.12),{BackgroundColor3=op and K.sel or K.panel}):Play()
+   end
+   aI=nil
+  end)
  end
 
  -- Keybinds
