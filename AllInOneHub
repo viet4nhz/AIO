@@ -1,4 +1,4 @@
--- ESP + Aim | LocalScript > StarterPlayerScripts
+-- AIO Hub | LocalScript > StarterPlayerScripts
 local PL,RS,UIS,TS,CS=game:GetService("Players"),game:GetService("RunService"),game:GetService("UserInputService"),game:GetService("TweenService"),game:GetService("CollectionService")
 local LP=PL.LocalPlayer
 local C={
@@ -10,15 +10,14 @@ local C={
 }
 local HL,HB,BB,eC2,oC2,tP,tE,tO={},{},{},{},{},0,0,0
 
--- Helpers
-local function dst(p) local c=LP.Character; return c and c:FindFirstChild("HumanoidRootPart") and (c.HumanoidRootPart.Position-p).Magnitude or math.huge end
-local function hpb(h,m) local b=math.floor(math.clamp(h/math.max(m,1),0,1)*8); return string.rep("|",b)..string.rep(".",8-b) end
+local function dst(p) local c=LP.Character;return c and c:FindFirstChild("HumanoidRootPart") and (c.HumanoidRootPart.Position-p).Magnitude or math.huge end
+local function hpb(h,m) local b=math.floor(math.clamp(h/math.max(m,1),0,1)*8);return string.rep("|",b)..string.rep(".",8-b) end
 local function isPC(m) for _,p in ipairs(PL:GetPlayers()) do if p.Character==m then return true end end end
 local function root(i) return i:IsA("Model") and (i.PrimaryPart or i:FindFirstChildWhichIsA("BasePart")) or (i:IsA("BasePart") and i) or nil end
 local function getFT() return 0.6+(C.alpha/25)*0.4 end
 
--- ESP objects
-local function addHL(i,col) local t=(i:IsA("BasePart") and i.Parent and i.Parent:IsA("Model")) and i.Parent or i; if HL[t] then HL[t].OutlineColor=col;HL[t].FillColor=col;HL[t].FillTransparency=getFT();return end; local h=Instance.new("Highlight");h.OutlineColor=col;h.FillColor=col;h.FillTransparency=getFT();h.OutlineTransparency=0;h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop;h.Adornee=t;h.Parent=workspace;HL[t]=h end
+-- ESP
+local function addHL(i,col) local t=(i:IsA("BasePart") and i.Parent and i.Parent:IsA("Model")) and i.Parent or i;if HL[t] then HL[t].OutlineColor=col;HL[t].FillColor=col;HL[t].FillTransparency=getFT();return end;local h=Instance.new("Highlight");h.OutlineColor=col;h.FillColor=col;h.FillTransparency=getFT();h.OutlineTransparency=0;h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop;h.Adornee=t;h.Parent=workspace;HL[t]=h end
 local function addHB(i) local p=root(i);if not p or HB[p] then return end;local h=Instance.new("SelectionBox");h.Color3=C.hC;h.SurfaceColor3=C.hC;h.SurfaceTransparency=0.9;h.LineThickness=0.05;h.Adornee=p;h.Parent=workspace;HB[p]=h end
 local function rmHB(i) local p=root(i);if p and HB[p] then HB[p]:Destroy();HB[p]=nil end end
 local function clrHB() local t={};for i in pairs(HB) do t[#t+1]=i end;for _,i in ipairs(t) do HB[i]:Destroy();HB[i]=nil end end
@@ -26,9 +25,9 @@ local function addBB(i,lbl,col)
     if BB[i] then return BB[i] end
     local a=root(i);if not a then return nil end
     local bb=Instance.new("BillboardGui");bb.Size=UDim2.new(0,110,0,28);bb.StudsOffset=Vector3.new(0,3,0);bb.AlwaysOnTop=true;bb.Adornee=a;bb.Parent=workspace;bb.LightInfluence=0
-    local function mkt(parent,sz,pos,col2,font,txt) local t=Instance.new("TextLabel",parent);t.Size=sz;t.Position=pos;t.BackgroundTransparency=1;t.TextColor3=col2;t.TextScaled=true;t.Font=font;t.TextXAlignment=Enum.TextXAlignment.Center;t.TextStrokeColor3=Color3.new(0,0,0);t.TextStrokeTransparency=0.2;t.Text=txt;return t end
-    mkt(bb,UDim2.fromScale(1,.55),UDim2.fromScale(0,0),col,Enum.Font.GothamBold,lbl)
-    local dl=mkt(bb,UDim2.fromScale(1,.45),UDim2.fromScale(0,.55),Color3.fromRGB(210,210,210),Enum.Font.Gotham,"...")
+    local function mkt(sz,pos,col2,f,txt) local t=Instance.new("TextLabel",bb);t.Size=sz;t.Position=pos;t.BackgroundTransparency=1;t.TextColor3=col2;t.TextScaled=true;t.Font=f;t.TextXAlignment=Enum.TextXAlignment.Center;t.TextStrokeColor3=Color3.new(0,0,0);t.TextStrokeTransparency=0.2;t.Text=txt;return t end
+    mkt(UDim2.fromScale(1,.55),UDim2.fromScale(0,0),col,Enum.Font.GothamBold,lbl)
+    local dl=mkt(UDim2.fromScale(1,.45),UDim2.fromScale(0,.55),Color3.fromRGB(210,210,210),Enum.Font.Gotham,"...")
     BB[i]={bb=bb,dl=dl};return BB[i]
 end
 local function rmESP(i) if HL[i] then HL[i]:Destroy();HL[i]=nil end;rmHB(i);if BB[i] then BB[i].bb:Destroy();BB[i]=nil end end
@@ -110,29 +109,29 @@ end
 
 -- Aim Assist
 local Camera=workspace.CurrentCamera
-local fovSG
+local fovFrame=nil  -- FIX: store separately, not on ScreenGui instance
 
 local function makeFovCircle()
-    if fovSG then fovSG:Destroy();fovSG=nil end
+    local old=LP.PlayerGui:FindFirstChild("ESP_FOV");if old then old:Destroy() end
+    fovFrame=nil
     if not C.aimOn then return end
-    fovSG=Instance.new("ScreenGui",LP.PlayerGui);fovSG.Name="ESP_FOV";fovSG.ResetOnSpawn=false;fovSG.IgnoreGuiInset=true;fovSG.DisplayOrder=99
+    local sg=Instance.new("ScreenGui",LP.PlayerGui);sg.Name="ESP_FOV";sg.ResetOnSpawn=false;sg.IgnoreGuiInset=true;sg.DisplayOrder=99
     local sz=C.aimFov*4
-    local f=Instance.new("Frame",fovSG);f.Size=UDim2.new(0,sz,0,sz);f.AnchorPoint=Vector2.new(.5,.5);f.Position=UDim2.new(.5,0,.5,0);f.BackgroundTransparency=1;f.BorderSizePixel=0
+    local f=Instance.new("Frame",sg);f.Size=UDim2.new(0,sz,0,sz);f.AnchorPoint=Vector2.new(.5,.5);f.Position=UDim2.new(.5,0,.5,0);f.BackgroundTransparency=1;f.BorderSizePixel=0
     Instance.new("UICorner",f).CornerRadius=UDim.new(1,0)
     local st=Instance.new("UIStroke",f);st.Color=Color3.fromRGB(255,255,255);st.Thickness=1.2;st.Transparency=0.4
-    fovSG._frame=f
+    fovFrame=f
 end
 
 local function updAim(dt)
     if not C.aimOn then return end
     local vp=Camera.ViewportSize;local center=Vector2.new(vp.X/2,vp.Y/2)
-    local fovPx=C.aimFov*2
-    local best,bestD=nil,math.huge
-    local function check(hrp)
-        local sp,vis=Camera:WorldToScreenPoint(hrp.Position)
+    local fovPx=C.aimFov*2;local best,bestD=nil,math.huge
+    local function check(p)
+        local sp,vis=Camera:WorldToScreenPoint(p.Position)
         if not vis then return end
         local sd=(Vector2.new(sp.X,sp.Y)-center).Magnitude
-        if sd<fovPx and sd<bestD then bestD=sd;best=hrp end
+        if sd<fovPx and sd<bestD then bestD=sd;best=p end
     end
     if C.aimPlayer then
         for _,pl in ipairs(PL:GetPlayers()) do
@@ -148,11 +147,102 @@ local function updAim(dt)
         end
     end
     if best then
-        local t=1-math.pow(C.aimSmooth/100,dt*60)  -- smoothness: 1=snap, 100=very slow
-        local cf=Camera.CFrame
-        local dir=(best.Position-cf.Position).Unit
-        local newCF=CFrame.new(cf.Position,cf.Position+dir)
-        Camera.CFrame=cf:Lerp(newCF,math.clamp(t,0.01,1))
+        local t=1-math.pow(math.clamp(C.aimSmooth/100,0.01,0.99),dt*60)
+        local cf=Camera.CFrame;local dir=(best.Position-cf.Position).Unit
+        Camera.CFrame=cf:Lerp(CFrame.new(cf.Position,cf.Position+dir),math.clamp(t,0.01,1))
+    end
+end
+
+-- Commands
+local cmdConns={}
+local function stopCmd(name) if cmdConns[name] then cmdConns[name]:Disconnect();cmdConns[name]=nil end end
+local function getHum() local ch=LP.Character;return ch and ch:FindFirstChildOfClass("Humanoid") end
+local function getHRP() local ch=LP.Character;return ch and ch:FindFirstChild("HumanoidRootPart") end
+
+local noclipOn=false
+local flyOn=false;local flySpeed=50;local flyConn=nil
+
+local function setNoclip(on)
+    noclipOn=on
+    stopCmd("noclip")
+    if on then
+        cmdConns["noclip"]=RS.Stepped:Connect(function()
+            local ch=LP.Character;if not ch then return end
+            for _,p in ipairs(ch:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end
+        end)
+    end
+end
+
+local function setFly(on,speed)
+    flySpeed=speed or flySpeed;flyOn=on
+    if flyConn then flyConn:Disconnect();flyConn=nil end
+    local ch=LP.Character;if not ch then return end
+    local hrp=ch:FindFirstChild("HumanoidRootPart");if not hrp then return end
+    local bv=hrp:FindFirstChild("FlyVelocity");if bv then bv:Destroy() end
+    if not on then
+        local hum=getHum();if hum then hum.PlatformStand=false end
+        return
+    end
+    local hum=getHum();if hum then hum.PlatformStand=true end
+    local vel=Instance.new("BodyVelocity",hrp);vel.Name="FlyVelocity";vel.MaxForce=Vector3.new(1e5,1e5,1e5);vel.Velocity=Vector3.zero
+    local bg=Instance.new("BodyGyro",hrp);bg.Name="FlyGyro";bg.MaxTorque=Vector3.new(1e5,1e5,1e5);bg.P=1e4
+    flyConn=RS.RenderStepped:Connect(function()
+        if not flyOn then return end
+        local cf=Camera.CFrame;local dir=Vector3.zero
+        if UIS:IsKeyDown(Enum.KeyCode.W) then dir=dir+cf.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then dir=dir-cf.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then dir=dir-cf.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then dir=dir+cf.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir=dir-Vector3.new(0,1,0) end
+        vel.Velocity=dir.Magnitude>0 and dir.Unit*flySpeed or Vector3.zero
+        bg.CFrame=cf
+    end)
+end
+
+local wsConn,jpConn=nil,nil
+local function runCmd(raw,logFn)
+    local parts={}
+    for w in raw:lower():gmatch("%S+") do parts[#parts+1]=w end
+    if #parts==0 then return end
+    local cmd=parts[1];local loop=(parts[#parts]=="loop")
+    local function log(msg) if logFn then logFn(msg) end end
+
+    if cmd=="noclip" then
+        setNoclip(not noclipOn);log("Noclip: "..(noclipOn and "ON" or "OFF"))
+    elseif cmd=="fly" then
+        local spd=tonumber(parts[2]) or flySpeed
+        setFly(not flyOn,spd);log("Fly: "..(flyOn and "ON spd="..flySpeed or "OFF"))
+    elseif cmd=="ws" or cmd=="walkspeed" then
+        local val=tonumber(parts[2]) or 16
+        stopCmd("ws")
+        if loop then
+            cmdConns["ws"]=RS.Stepped:Connect(function() local h=getHum();if h then h.WalkSpeed=val end end)
+            log("WalkSpeed "..val.." loop ON")
+        else
+            local h=getHum();if h then h.WalkSpeed=val end;log("WalkSpeed -> "..val)
+        end
+    elseif cmd=="jp" or cmd=="jumppower" then
+        local val=tonumber(parts[2]) or 50
+        stopCmd("jp")
+        if loop then
+            cmdConns["jp"]=RS.Stepped:Connect(function() local h=getHum();if h then h.JumpPower=val end end)
+            log("JumpPower "..val.." loop ON")
+        else
+            local h=getHum();if h then h.JumpPower=val end;log("JumpPower -> "..val)
+        end
+    elseif cmd=="stopws" then stopCmd("ws");log("WalkSpeed loop stopped")
+    elseif cmd=="stopjp" then stopCmd("jp");log("JumpPower loop stopped")
+    elseif cmd=="stopfly" then setFly(false);log("Fly OFF")
+    elseif cmd=="stopnoclip" then setNoclip(false);log("Noclip OFF")
+    elseif cmd=="god" then
+        local h=getHum();if h then h.MaxHealth=math.huge;h.Health=math.huge end;log("God mode ON")
+    elseif cmd=="resetws" then stopCmd("ws");local h=getHum();if h then h.WalkSpeed=16 end;log("WalkSpeed reset")
+    elseif cmd=="resetjp" then stopCmd("jp");local h=getHum();if h then h.JumpPower=50 end;log("JumpPower reset")
+    elseif cmd=="tp" then
+        local hrp=getHRP();if hrp and tonumber(parts[2]) and tonumber(parts[3]) and tonumber(parts[4]) then hrp.CFrame=CFrame.new(tonumber(parts[2]),tonumber(parts[3]),tonumber(parts[4]));log("Teleported") end
+    else
+        log("Unknown: "..cmd)
     end
 end
 
@@ -160,122 +250,143 @@ end
 local COL={bg=Color3.fromRGB(28,28,30),pg=Color3.fromRGB(34,34,37),row=Color3.fromRGB(40,40,43),sec=Color3.fromRGB(32,32,34),txt=Color3.fromRGB(230,230,232),sub=Color3.fromRGB(110,110,115),div=Color3.fromRGB(48,48,52),swOff=Color3.fromRGB(58,58,62),swOn=Color3.fromRGB(232,232,235),swOnBg=Color3.fromRGB(85,85,90),tab=Color3.fromRGB(38,38,42),tabSel=Color3.fromRGB(52,52,56)}
 
 local function buildUI()
-    local old=LP.PlayerGui:FindFirstChild("ESP_UI");if old then old:Destroy() end
-    local oldF=LP.PlayerGui:FindFirstChild("ESP_FAB");if oldF then oldF:Destroy() end
+    local old=LP.PlayerGui:FindFirstChild("AIO_UI");if old then old:Destroy() end
+    local oldF=LP.PlayerGui:FindFirstChild("AIO_FAB");if oldF then oldF:Destroy() end
     local mob=UIS.TouchEnabled
-    -- Layout: 480 wide, left sidebar tabs 90px, right content 390px, height 300px
-    local W,H,TW,CH=480,310,90,274
-    local sg=Instance.new("ScreenGui",LP.PlayerGui);sg.Name="ESP_UI";sg.ResetOnSpawn=false;sg.IgnoreGuiInset=true;sg.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;sg.DisplayOrder=100
+    local W,H,TW=480,320,90
+    local sg=Instance.new("ScreenGui",LP.PlayerGui);sg.Name="AIO_UI";sg.ResetOnSpawn=false;sg.IgnoreGuiInset=true;sg.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;sg.DisplayOrder=100
 
     local panel=Instance.new("Frame",sg);panel.Size=UDim2.new(0,W,0,H);panel.Position=UDim2.new(0.5,-W/2,0.5,-H/2);panel.BackgroundColor3=COL.bg;panel.BorderSizePixel=0;panel.Active=true;panel.Draggable=true;panel.Visible=not mob
     Instance.new("UICorner",panel).CornerRadius=UDim.new(0,10)
 
-    -- Title strip
-    local title=Instance.new("Frame",panel);title.Size=UDim2.new(1,0,0,36);title.BackgroundColor3=COL.bg;title.BorderSizePixel=0
-    Instance.new("UICorner",title).CornerRadius=UDim.new(0,10)
+    -- Title
+    local title=Instance.new("Frame",panel);title.Size=UDim2.new(1,0,0,36);title.BackgroundColor3=COL.bg;title.BorderSizePixel=0;Instance.new("UICorner",title).CornerRadius=UDim.new(0,10)
     local tfix=Instance.new("Frame",title);tfix.Size=UDim2.new(1,0,.5,0);tfix.Position=UDim2.new(0,0,.5,0);tfix.BackgroundColor3=COL.bg;tfix.BorderSizePixel=0
-    local tlbl=Instance.new("TextLabel",title);tlbl.Size=UDim2.new(1,-12,1,0);tlbl.Position=UDim2.new(0,12,0,0);tlbl.BackgroundTransparency=1;tlbl.TextColor3=COL.txt;tlbl.Font=Enum.Font.GothamBold;tlbl.TextSize=13;tlbl.TextXAlignment=Enum.TextXAlignment.Left;tlbl.Text="ESP"
+    local tlbl=Instance.new("TextLabel",title);tlbl.Size=UDim2.new(1,-12,1,0);tlbl.Position=UDim2.new(0,12,0,0);tlbl.BackgroundTransparency=1;tlbl.TextColor3=COL.txt;tlbl.Font=Enum.Font.GothamBold;tlbl.TextSize=13;tlbl.TextXAlignment=Enum.TextXAlignment.Left;tlbl.Text="AIO Hub"
     local hdiv=Instance.new("Frame",panel);hdiv.Size=UDim2.new(1,0,0,1);hdiv.Position=UDim2.new(0,0,0,36);hdiv.BackgroundColor3=COL.div;hdiv.BorderSizePixel=0
 
-    -- Left sidebar
+    local CH=H-37
     local sidebar=Instance.new("Frame",panel);sidebar.Size=UDim2.new(0,TW,0,CH);sidebar.Position=UDim2.new(0,0,0,37);sidebar.BackgroundColor3=COL.sec;sidebar.BorderSizePixel=0
+    Instance.new("UIListLayout",sidebar).SortOrder=Enum.SortOrder.LayoutOrder
     local sdiv=Instance.new("Frame",panel);sdiv.Size=UDim2.new(0,1,0,CH);sdiv.Position=UDim2.new(0,TW,0,37);sdiv.BackgroundColor3=COL.div;sdiv.BorderSizePixel=0
-    local sLayout=Instance.new("UIListLayout",sidebar);sLayout.SortOrder=Enum.SortOrder.LayoutOrder;sLayout.Padding=UDim.new(0,0)
-
-    -- Right content
     local content=Instance.new("ScrollingFrame",panel);content.Size=UDim2.new(1,-TW-1,0,CH);content.Position=UDim2.new(0,TW+1,0,37);content.BackgroundTransparency=1;content.BorderSizePixel=0;content.ScrollBarThickness=2;content.ScrollBarImageColor3=COL.div;content.AutomaticCanvasSize=Enum.AutomaticSize.Y;content.CanvasSize=UDim2.new(0,0,0,0)
-    local cLayout=Instance.new("UIListLayout",content);cLayout.SortOrder=Enum.SortOrder.LayoutOrder;cLayout.Padding=UDim.new(0,0)
+    Instance.new("UIListLayout",content).SortOrder=Enum.SortOrder.LayoutOrder
 
-    -- Pages (frames inside content, only one visible at a time)
+    -- Pages
     local pages={}
-    local function makePage(name)
-        local f=Instance.new("Frame",content);f.Size=UDim2.new(1,0,0,0);f.AutomaticSize=Enum.AutomaticSize.Y;f.BackgroundTransparency=1;f.BorderSizePixel=0;f.Visible=false
-        local l=Instance.new("UIListLayout",f);l.SortOrder=Enum.SortOrder.LayoutOrder;l.Padding=UDim.new(0,0)
-        pages[name]=f;return f
-    end
-    local espPage=makePage("esp")
-    local aimPage=makePage("aim")
-    espPage.Visible=true  -- default
+    local function mkPage(name) local f=Instance.new("Frame",content);f.Size=UDim2.new(1,0,0,0);f.AutomaticSize=Enum.AutomaticSize.Y;f.BackgroundTransparency=1;f.BorderSizePixel=0;f.Visible=false;Instance.new("UIListLayout",f).SortOrder=Enum.SortOrder.LayoutOrder;pages[name]=f;return f end
+    local espPg=mkPage("esp");local aimPg=mkPage("aim");local cmdPg=mkPage("cmd");local crePg=mkPage("cre")
+    espPg.Visible=true
 
-    -- Tab buttons
-    local tabBtns={}
-    local curTab="esp"
-    local function mkTab(label,pageName,order)
-        local b=Instance.new("TextButton",sidebar);b.Size=UDim2.new(1,0,0,42);b.BackgroundColor3=pageName==curTab and COL.tabSel or COL.tab;b.BorderSizePixel=0;b.AutoButtonColor=false;b.LayoutOrder=order
-        local tl=Instance.new("TextLabel",b);tl.Size=UDim2.new(1,0,1,0);tl.BackgroundTransparency=1;tl.TextColor3=pageName==curTab and COL.txt or COL.sub;tl.Font=Enum.Font.GothamSemibold;tl.TextSize=12;tl.Text=label
-        tabBtns[pageName]={btn=b,lbl=tl}
+    -- Tabs
+    local tabBtns={};local curTab="esp"
+    local function mkTab(lbl,pg,ord)
+        local b=Instance.new("TextButton",sidebar);b.Size=UDim2.new(1,0,0,42);b.BackgroundColor3=pg==curTab and COL.tabSel or COL.tab;b.BorderSizePixel=0;b.AutoButtonColor=false;b.LayoutOrder=ord
+        local tl=Instance.new("TextLabel",b);tl.Size=UDim2.fromScale(1,1);tl.BackgroundTransparency=1;tl.TextColor3=pg==curTab and COL.txt or COL.sub;tl.Font=Enum.Font.GothamSemibold;tl.TextSize=12;tl.Text=lbl
+        tabBtns[pg]={b=b,t=tl}
         b.MouseButton1Click:Connect(function()
-            if curTab==pageName then return end
-            -- hide old
+            if curTab==pg then return end
             if pages[curTab] then pages[curTab].Visible=false end
-            TS:Create(tabBtns[curTab].btn,TweenInfo.new(.12),{BackgroundColor3=COL.tab}):Play()
-            TS:Create(tabBtns[curTab].lbl,TweenInfo.new(.12),{TextColor3=COL.sub}):Play()
-            -- show new
-            curTab=pageName
-            pages[curTab].Visible=true
-            TS:Create(b,TweenInfo.new(.12),{BackgroundColor3=COL.tabSel}):Play()
-            TS:Create(tl,TweenInfo.new(.12),{TextColor3=COL.txt}):Play()
+            TS:Create(tabBtns[curTab].b,TweenInfo.new(.12),{BackgroundColor3=COL.tab}):Play();TS:Create(tabBtns[curTab].t,TweenenInfo.new(.12),{BackgroundColor3=COL.tab}):Play();TS:Create(tabBtns[curTab].t,TweenInfo.new(.12),{TextColor3=COL.sub}):Play()
+            curTab=pg;pages[curTab].Visible=true
+            TS:Create(b,TweenInfo.new(.12),{BackgroundColor3=COL.tabSel}):Play();TS:Create(tl,TweenInfo.new(.12),{TextColor3=COL.txt}):Play()
         end)
     end
-    mkTab("ESP",  "esp", 1)
-    mkTab("Aim",  "aim", 2)
+    mkTab("ESP","esp",1);mkTab("Aim","aim",2);mkTab("Cmd","cmd",3);mkTab("Info","cre",4)
 
-    -- Widget builders (target a specific page frame)
-    local function mkToggle(page,label,gF,sF,extra)
-        local row=Instance.new("Frame",page);row.Size=UDim2.new(1,0,0,40);row.BackgroundColor3=COL.row;row.BorderSizePixel=0
+    -- Widget builders
+    local function mkToggle(pg,label,gF,sF,extra)
+        local row=Instance.new("Frame",pg);row.Size=UDim2.new(1,0,0,40);row.BackgroundColor3=COL.row;row.BorderSizePixel=0
         local dv=Instance.new("Frame",row);dv.Size=UDim2.new(1,-20,0,1);dv.Position=UDim2.new(0,10,1,-1);dv.BackgroundColor3=COL.div;dv.BorderSizePixel=0
-        local lbl=Instance.new("TextLabel",row);lbl.Size=UDim2.new(.7,0,1,0);lbl.Position=UDim2.new(0,12,0,0);lbl.BackgroundTransparency=1;lbl.TextColor3=COL.txt;lbl.Font=Enum.Font.Gotham;lbl.TextSize=12;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.Text=label
+        local lbl=Instance.new("TextLabel",row);lbl.Size=UDim2.new(.72,0,1,0);lbl.Position=UDim2.new(0,12,0,0);lbl.BackgroundTransparency=1;lbl.TextColor3=COL.txt;lbl.Font=Enum.Font.Gotham;lbl.TextSize=12;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.Text=label
         local track=Instance.new("Frame",row);track.Size=UDim2.new(0,34,0,18);track.Position=UDim2.new(1,-46,0.5,-9);track.BackgroundColor3=gF() and COL.swOnBg or COL.swOff;track.BorderSizePixel=0;Instance.new("UICorner",track).CornerRadius=UDim.new(1,0)
         local knob=Instance.new("Frame",track);knob.Size=UDim2.new(0,12,0,12);knob.Position=gF() and UDim2.new(1,-15,0.5,-6) or UDim2.new(0,3,0.5,-6);knob.BackgroundColor3=gF() and COL.swOn or Color3.fromRGB(140,140,145);knob.BorderSizePixel=0;Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
         local btn=Instance.new("TextButton",row);btn.Size=UDim2.fromScale(1,1);btn.BackgroundTransparency=1;btn.Text=""
         btn.MouseButton1Click:Connect(function()
-            local on=not gF();sF(on);if extra and not on then extra() end
+            -- FIX: run sF AFTER capturing 'on', before tweens
+            local on=not gF()
+            sF(on)
+            if extra and not on then extra() end
+            -- tweens always run regardless of what sF does
             TS:Create(track,TweenInfo.new(.13),{BackgroundColor3=on and COL.swOnBg or COL.swOff}):Play()
             TS:Create(knob,TweenInfo.new(.13),{Position=on and UDim2.new(1,-15,0.5,-6) or UDim2.new(0,3,0.5,-6),BackgroundColor3=on and COL.swOn or Color3.fromRGB(140,140,145)}):Play()
         end)
     end
-    local function mkSlider(page,label,gF,sF,minV,maxV,onChange)
-        local row=Instance.new("Frame",page);row.Size=UDim2.new(1,0,0,50);row.BackgroundColor3=COL.row;row.BorderSizePixel=0
+    local function mkSlider(pg,label,gF,sF,minV,maxV,onChange)
+        local row=Instance.new("Frame",pg);row.Size=UDim2.new(1,0,0,50);row.BackgroundColor3=COL.row;row.BorderSizePixel=0
         local dv=Instance.new("Frame",row);dv.Size=UDim2.new(1,-20,0,1);dv.Position=UDim2.new(0,10,1,-1);dv.BackgroundColor3=COL.div;dv.BorderSizePixel=0
         local lbl=Instance.new("TextLabel",row);lbl.Size=UDim2.new(.6,0,0,22);lbl.Position=UDim2.new(0,12,0,4);lbl.BackgroundTransparency=1;lbl.TextColor3=COL.txt;lbl.Font=Enum.Font.Gotham;lbl.TextSize=12;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.Text=label
-        local vLbl=Instance.new("TextLabel",row);vLbl.Size=UDim2.new(.35,0,0,22);vLbl.Position=UDim2.new(.65,-10,0,4);vLbl.BackgroundTransparency=1;vLbl.TextColor3=COL.sub;vLbl.Font=Enum.Font.Gotham;vLbl.TextSize=12;vLbl.TextXAlignment=Enum.TextXAlignment.Right;vLbl.Text=tostring(gF())
+        local vl=Instance.new("TextLabel",row);vl.Size=UDim2.new(.35,0,0,22);vl.Position=UDim2.new(.65,-10,0,4);vl.BackgroundTransparency=1;vl.TextColor3=COL.sub;vl.Font=Enum.Font.Gotham;vl.TextSize=12;vl.TextXAlignment=Enum.TextXAlignment.Right;vl.Text=tostring(gF())
         local tr=Instance.new("Frame",row);tr.Size=UDim2.new(1,-20,0,3);tr.Position=UDim2.new(0,10,0,34);tr.BackgroundColor3=COL.swOff;tr.BorderSizePixel=0;Instance.new("UICorner",tr).CornerRadius=UDim.new(1,0)
         local fl=Instance.new("Frame",tr);fl.Size=UDim2.new((gF()-minV)/(maxV-minV),0,1,0);fl.BackgroundColor3=COL.swOn;fl.BorderSizePixel=0;Instance.new("UICorner",fl).CornerRadius=UDim.new(1,0)
         local btn=Instance.new("TextButton",tr);btn.Size=UDim2.fromScale(1,1);btn.BackgroundTransparency=1;btn.Text=""
         local drag=false
-        local function slide(mx) local pct=math.clamp((mx-tr.AbsolutePosition.X)/tr.AbsoluteSize.X,0,1);local val=math.floor(minV+pct*(maxV-minV));sF(val);fl.Size=UDim2.new(pct,0,1,0);vLbl.Text=tostring(val);if onChange then onChange(val) end end
+        local function slide(mx) local pct=math.clamp((mx-tr.AbsolutePosition.X)/tr.AbsoluteSize.X,0,1);local val=math.floor(minV+pct*(maxV-minV));sF(val);fl.Size=UDim2.new(pct,0,1,0);vl.Text=tostring(val);if onChange then onChange(val) end end
         btn.InputBegan:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then drag=true;slide(inp.Position.X) end end)
         UIS.InputChanged:Connect(function(inp) if drag and (inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch) then slide(inp.Position.X) end end)
         UIS.InputEnded:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then drag=false end end)
     end
 
-    -- ESP page items
-    mkToggle(espPage,"ESP  [Z]",       function()return C.on     end,function(v)C.on=v;     if not v then clrAll() end end)
-    mkToggle(espPage,"Player  [X]",    function()return C.player end,function(v)C.player=v end)
-    mkToggle(espPage,"Entity  [C]",    function()return C.entity end,function(v)C.entity=v end)
-    mkToggle(espPage,"Object  [V]",    function()return C.object end,function(v)C.object=v end)
-    mkToggle(espPage,"Info  [B]",      function()return C.info   end,function(v)C.info=v;   if not v then clrBB() end end)
-    mkToggle(espPage,"Hitbox  [N]",    function()return C.hitbox end,function(v)C.hitbox=v; if not v then clrHB() end end)
-    mkSlider(espPage,"Fill Opacity",   function()return C.alpha  end,function(v)C.alpha=v  end,0,25,function() rfAlpha() end)
+    -- ESP page
+    mkToggle(espPg,"ESP  [Z]",      function()return C.on     end,function(v)C.on=v;     if not v then clrAll() end end)
+    mkToggle(espPg,"Player  [X]",   function()return C.player end,function(v)C.player=v end)
+    mkToggle(espPg,"Entity  [C]",   function()return C.entity end,function(v)C.entity=v end)
+    mkToggle(espPg,"Object  [V]",   function()return C.object end,function(v)C.object=v end)
+    mkToggle(espPg,"Info  [B]",     function()return C.info   end,function(v)C.info=v;   if not v then clrBB() end end)
+    mkToggle(espPg,"Hitbox  [N]",   function()return C.hitbox end,function(v)C.hitbox=v; if not v then clrHB() end end)
+    mkSlider(espPg,"Fill Opacity",  function()return C.alpha  end,function(v)C.alpha=v  end,0,25,function() rfAlpha() end)
 
-    -- Aim page items
-    mkToggle(aimPage,"Aim Assist  [G]",function()return C.aimOn     end,function(v)C.aimOn=v;     makeFovCircle() end)
-    mkToggle(aimPage,"Aim Player",     function()return C.aimPlayer end,function(v)C.aimPlayer=v end)
-    mkToggle(aimPage,"Aim Entity",     function()return C.aimEntity end,function(v)C.aimEntity=v end)
-    mkSlider(aimPage,"FOV",            function()return C.aimFov    end,function(v)C.aimFov=v    end,1,100,function(v)
-        if fovSG and fovSG._frame then local sz=v*4;fovSG._frame.Size=UDim2.new(0,sz,0,sz) end
+    -- Aim page
+    mkToggle(aimPg,"Aim Assist  [G]",function()return C.aimOn     end,function(v)C.aimOn=v;     makeFovCircle() end)
+    mkToggle(aimPg,"Aim Player",     function()return C.aimPlayer end,function(v)C.aimPlayer=v end)
+    mkToggle(aimPg,"Aim Entity",     function()return C.aimEntity end,function(v)C.aimEntity=v end)
+    mkSlider(aimPg,"FOV",            function()return C.aimFov    end,function(v)C.aimFov=v    end,1,100,function(v)
+        if fovFrame and fovFrame.Parent then local sz=v*4;fovFrame.Size=UDim2.new(0,sz,0,sz) end
     end)
-    mkSlider(aimPage,"Smoothness",     function()return C.aimSmooth end,function(v)C.aimSmooth=v end,1,100)
+    mkSlider(aimPg,"Smoothness",     function()return C.aimSmooth end,function(v)C.aimSmooth=v end,1,100)
 
-    -- Bottom bar
-    local bot=Instance.new("Frame",panel);bot.Size=UDim2.new(1,0,0,1);bot.Position=UDim2.new(0,0,0,H-1);bot.BackgroundColor3=COL.div;bot.BorderSizePixel=0
+    -- Commands page
+    local cmdWrap=Instance.new("Frame",cmdPg);cmdWrap.Size=UDim2.new(1,0,0,0);cmdWrap.AutomaticSize=Enum.AutomaticSize.Y;cmdWrap.BackgroundTransparency=1;cmdWrap.BorderSizePixel=0
+    -- Log area
+    local logFrame=Instance.new("Frame",cmdWrap);logFrame.Size=UDim2.new(1,0,0,140);logFrame.BackgroundColor3=COL.sec;logFrame.BorderSizePixel=0
+    local logLayout=Instance.new("UIListLayout",logFrame);logLayout.SortOrder=Enum.SortOrder.LayoutOrder;logLayout.VerticalAlignment=Enum.VerticalAlignment.Bottom;logLayout.Padding=UDim.new(0,0)
+    local logLines={}
+    local function addLog(msg)
+        local tl=Instance.new("TextLabel",logFrame);tl.Size=UDim2.new(1,-8,0,18);tl.BackgroundTransparency=1;tl.TextColor3=COL.sub;tl.Font=Enum.Font.Gotham;tl.TextSize=11;tl.TextXAlignment=Enum.TextXAlignment.Left;tl.TextTruncate=Enum.TextTruncate.AtEnd;tl.Text=" > "..msg
+        table.insert(logLines,tl);if #logLines>7 then logLines[1]:Destroy();table.remove(logLines,1) end
+    end
+    addLog("Commands ready.")
+    addLog("ws 60 | jp 80 loop | fly 50")
+    addLog("noclip | god | tp x y z")
+    addLog("stopws | stopjp | stopfly")
+    -- Input row
+    local inputRow=Instance.new("Frame",cmdWrap);inputRow.Size=UDim2.new(1,0,0,40);inputRow.BackgroundColor3=COL.row;inputRow.BorderSizePixel=0
+    local tb=Instance.new("TextBox",inputRow);tb.Size=UDim2.new(1,-56,1,-8);tb.Position=UDim2.new(0,8,0,4);tb.BackgroundColor3=COL.sec;tb.BorderSizePixel=0;tb.TextColor3=COL.txt;tb.Font=Enum.Font.Gotham;tb.TextSize=12;tb.PlaceholderText="enter command...";tb.PlaceholderColor3=COL.sub;tb.ClearTextOnFocus=false;tb.Text=""
+    Instance.new("UICorner",tb).CornerRadius=UDim.new(0,6)
+    local runBtn=Instance.new("TextButton",inputRow);runBtn.Size=UDim2.new(0,44,1,-8);runBtn.Position=UDim2.new(1,-52,0,4);runBtn.BackgroundColor3=COL.tabSel;runBtn.BorderSizePixel=0;runBtn.AutoButtonColor=false;runBtn.TextColor3=COL.txt;runBtn.Font=Enum.Font.GothamBold;runBtn.TextSize=12;runBtn.Text="Run"
+    Instance.new("UICorner",runBtn).CornerRadius=UDim.new(0,6)
+    local function exec() local txt=tb.Text;if txt=="" then return end;runCmd(txt,addLog);tb.Text="" end
+    runBtn.MouseButton1Click:Connect(exec)
+    tb.FocusLost:Connect(function(enter) if enter then exec() end end)
+
+    -- Credits page
+    local function mkCredit(text,sz,col2)
+        local f=Instance.new("Frame",crePg);f.Size=UDim2.new(1,0,0,sz+8);f.BackgroundTransparency=1;f.BorderSizePixel=0
+        local tl=Instance.new("TextLabel",f);tl.Size=UDim2.new(1,-20,1,0);tl.Position=UDim2.new(0,10,0,0);tl.BackgroundTransparency=1;tl.TextColor3=col2 or COL.txt;tl.Font=Enum.Font.Gotham;tl.TextSize=sz;tl.TextXAlignment=Enum.TextXAlignment.Left;tl.Text=text;tl.TextWrapped=true
+    end
+
+    mkCredit("AIO Hub  -  All in One Hub",14,COL.txt)
+    mkCredit("Created with Claude AI",12,COL.sub)
+    mkCredit("Model: claude-sonnet-4-6",12,COL.sub)
+    mkCredit("",10,COL.sub)
+    mkCredit("ESP  -  Aim Assist  -  Commands",12,COL.sub)
+    mkCredit("Use at your own risk.",11,Color3.fromRGB(160,100,100))
 
     -- Mobile FAB
     if mob then
-        local fsg=Instance.new("ScreenGui",LP.PlayerGui);fsg.Name="ESP_FAB";fsg.ResetOnSpawn=false;fsg.IgnoreGuiInset=true;fsg.DisplayOrder=101
+        local fsg=Instance.new("ScreenGui",LP.PlayerGui);fsg.Name="AIO_FAB";fsg.ResetOnSpawn=false;fsg.IgnoreGuiInset=true;fsg.DisplayOrder=101
         local FAB=Instance.new("TextButton",fsg);FAB.Size=UDim2.new(0,64,0,64);FAB.Position=UDim2.new(0,14,1,-82);FAB.BackgroundColor3=COL.bg;FAB.BorderSizePixel=0;FAB.AutoButtonColor=false
-        Instance.new("UICorner",FAB).CornerRadius=UDim.new(0,14)
-        local fs=Instance.new("UIStroke",FAB);fs.Color=COL.div;fs.Thickness=1.5
+        Instance.new("UICorner",FAB).CornerRadius=UDim.new(0,14);local fs=Instance.new("UIStroke",FAB);fs.Color=COL.div;fs.Thickness=1.5
         local fl=Instance.new("TextLabel",FAB);fl.Size=UDim2.new(1,0,0,16);fl.Position=UDim2.new(0,0,1,-18);fl.BackgroundTransparency=1;fl.TextColor3=COL.txt;fl.Font=Enum.Font.GothamBold;fl.TextSize=11;fl.Text="Menu"
         local function mkLn(y) local l=Instance.new("Frame",FAB);l.Size=UDim2.new(0,28,0,2);l.Position=UDim2.new(0.5,-14,0,y);l.BackgroundColor3=COL.txt;l.BorderSizePixel=0;Instance.new("UICorner",l).CornerRadius=UDim.new(1,0) end
         mkLn(16);mkLn(23);mkLn(30)
@@ -284,24 +395,20 @@ local function buildUI()
         FAB.InputChanged:Connect(function(inp) if inp~=aInp then return end;FAB.Position=UDim2.new(fPos.X.Scale,fPos.X.Offset+(inp.Position.X-tPos.X),fPos.Y.Scale,fPos.Y.Offset+(inp.Position.Y-tPos.Y)) end)
         FAB.InputEnded:Connect(function(inp)
             if inp~=aInp then return end
-            if math.abs(inp.Position.X-tPos.X)<10 and math.abs(inp.Position.Y-tPos.Y)<10 then
-                local open=not panel.Visible;panel.Visible=open
-                TS:Create(FAB,TweenInfo.new(.12),{BackgroundColor3=open and COL.pg or COL.bg}):Play()
-                fs.Color=open and COL.sub or COL.div
-            end
+            if math.abs(inp.Position.X-tPos.X)<10 and math.abs(inp.Position.Y-tPos.Y)<10 then local open=not panel.Visible;panel.Visible=open;TS:Create(FAB,TweenInfo.new(.12),{BackgroundColor3=open and COL.pg or COL.bg}):Play();fs.Color=open and COL.sub or COL.div end
             aInp=nil
         end)
     end
 
     UIS.InputBegan:Connect(function(inp,gpe)
         if gpe then return end;local k=inp.KeyCode
-        if     k==Enum.KeyCode.Z then C.on=not C.on;      if not C.on then clrAll() end
+        if     k==Enum.KeyCode.Z then C.on=not C.on;if not C.on then clrAll() end
         elseif k==Enum.KeyCode.X then C.player=not C.player
         elseif k==Enum.KeyCode.C then C.entity=not C.entity
         elseif k==Enum.KeyCode.V then C.object=not C.object
-        elseif k==Enum.KeyCode.B then C.info=not C.info;   if not C.info   then clrBB() end
+        elseif k==Enum.KeyCode.B then C.info=not C.info;if not C.info then clrBB() end
         elseif k==Enum.KeyCode.N then C.hitbox=not C.hitbox;if not C.hitbox then clrHB() end
-        elseif k==Enum.KeyCode.G then C.aimOn=not C.aimOn; makeFovCircle()
+        elseif k==Enum.KeyCode.G then C.aimOn=not C.aimOn;makeFovCircle()
         end
     end)
 end
@@ -317,4 +424,4 @@ RS.Heartbeat:Connect(function(dt)
     if C.aimOn then pcall(updAim,dt) end
 end)
 PL.PlayerRemoving:Connect(function(p) if p.Character then rmESP(p.Character) end end)
-print("[ESP] Z X C V B N G | Aim: G=toggle")
+print("[AIO Hub] Z X C V B N G | cmd: ws jp fly noclip god tp")
