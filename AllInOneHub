@@ -1,0 +1,320 @@
+-- ESP + Aim | LocalScript > StarterPlayerScripts
+local PL,RS,UIS,TS,CS=game:GetService("Players"),game:GetService("RunService"),game:GetService("UserInputService"),game:GetService("TweenService"),game:GetService("CollectionService")
+local LP=PL.LocalPlayer
+local C={
+    on=true,info=true,hitbox=false,player=true,entity=true,object=true,
+    pC=Color3.fromRGB(220,80,80),eC=Color3.fromRGB(210,140,50),oC=Color3.fromRGB(80,190,120),hC=Color3.fromRGB(220,220,220),
+    alpha=10,maxD=500,pR=0.1,eR=2,oR=5,
+    objTags={"Interactable","Pickup","Item","Chest","Door","Loot","Collectible"},
+    aimOn=false,aimPlayer=true,aimEntity=true,aimFov=50,aimSmooth=50,
+}
+local HL,HB,BB,eC2,oC2,tP,tE,tO={},{},{},{},{},0,0,0
+
+-- Helpers
+local function dst(p) local c=LP.Character; return c and c:FindFirstChild("HumanoidRootPart") and (c.HumanoidRootPart.Position-p).Magnitude or math.huge end
+local function hpb(h,m) local b=math.floor(math.clamp(h/math.max(m,1),0,1)*8); return string.rep("|",b)..string.rep(".",8-b) end
+local function isPC(m) for _,p in ipairs(PL:GetPlayers()) do if p.Character==m then return true end end end
+local function root(i) return i:IsA("Model") and (i.PrimaryPart or i:FindFirstChildWhichIsA("BasePart")) or (i:IsA("BasePart") and i) or nil end
+local function getFT() return 0.6+(C.alpha/25)*0.4 end
+
+-- ESP objects
+local function addHL(i,col) local t=(i:IsA("BasePart") and i.Parent and i.Parent:IsA("Model")) and i.Parent or i; if HL[t] then HL[t].OutlineColor=col;HL[t].FillColor=col;HL[t].FillTransparency=getFT();return end; local h=Instance.new("Highlight");h.OutlineColor=col;h.FillColor=col;h.FillTransparency=getFT();h.OutlineTransparency=0;h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop;h.Adornee=t;h.Parent=workspace;HL[t]=h end
+local function addHB(i) local p=root(i);if not p or HB[p] then return end;local h=Instance.new("SelectionBox");h.Color3=C.hC;h.SurfaceColor3=C.hC;h.SurfaceTransparency=0.9;h.LineThickness=0.05;h.Adornee=p;h.Parent=workspace;HB[p]=h end
+local function rmHB(i) local p=root(i);if p and HB[p] then HB[p]:Destroy();HB[p]=nil end end
+local function clrHB() local t={};for i in pairs(HB) do t[#t+1]=i end;for _,i in ipairs(t) do HB[i]:Destroy();HB[i]=nil end end
+local function addBB(i,lbl,col)
+    if BB[i] then return BB[i] end
+    local a=root(i);if not a then return nil end
+    local bb=Instance.new("BillboardGui");bb.Size=UDim2.new(0,110,0,28);bb.StudsOffset=Vector3.new(0,3,0);bb.AlwaysOnTop=true;bb.Adornee=a;bb.Parent=workspace;bb.LightInfluence=0
+    local function mkt(parent,sz,pos,col2,font,txt) local t=Instance.new("TextLabel",parent);t.Size=sz;t.Position=pos;t.BackgroundTransparency=1;t.TextColor3=col2;t.TextScaled=true;t.Font=font;t.TextXAlignment=Enum.TextXAlignment.Center;t.TextStrokeColor3=Color3.new(0,0,0);t.TextStrokeTransparency=0.2;t.Text=txt;return t end
+    mkt(bb,UDim2.fromScale(1,.55),UDim2.fromScale(0,0),col,Enum.Font.GothamBold,lbl)
+    local dl=mkt(bb,UDim2.fromScale(1,.45),UDim2.fromScale(0,.55),Color3.fromRGB(210,210,210),Enum.Font.Gotham,"...")
+    BB[i]={bb=bb,dl=dl};return BB[i]
+end
+local function rmESP(i) if HL[i] then HL[i]:Destroy();HL[i]=nil end;rmHB(i);if BB[i] then BB[i].bb:Destroy();BB[i]=nil end end
+local function clean(fn) local t={};for i in pairs(HL) do if fn(i) then t[#t+1]=i end end;for _,i in ipairs(t) do rmESP(i) end end
+local function clrAll() local t={};for i in pairs(HL) do t[#t+1]=i end;for _,i in ipairs(t) do rmESP(i) end;clrHB() end
+local function clrBB() local t={};for i in pairs(BB) do t[#t+1]=i end;for _,i in ipairs(t) do BB[i].bb:Destroy();BB[i]=nil end end
+local function rfAlpha() for _,h in pairs(HL) do h.FillTransparency=getFT() end end
+
+-- Classify
+local function isEnt(m)
+    if not(m and m:IsA("Model")) or isPC(m) then return false end
+    if m:FindFirstChildOfClass("Humanoid") or m:FindFirstChildOfClass("HumanoidDescription") then return true end
+    for _,a in ipairs({"Health","HP","MaxHealth","MaxHP"}) do if m:GetAttribute(a) then return true end end
+    local hv=m:FindFirstChild("Health") or m:FindFirstChild("HP");if hv and (hv:IsA("NumberValue") or hv:IsA("IntValue")) then return true end
+    for _,ch in ipairs(m:GetDescendants()) do if ch:IsA("Script") then local n=ch.Name:lower();if n:find("ai") or n:find("npc") or n:find("enemy") or n:find("mob") then return true end end end
+    for _,tag in ipairs(CS:GetTags(m)) do local tl=tag:lower();if tl:find("npc") or tl:find("enemy") or tl:find("mob") or tl:find("entity") then return true end end
+    return false
+end
+local BL={"wall","floor","ceiling","ground","terrain","baseplate","road","path","tree","bush","grass","rock","stone","building","structure","barrier","fence","platform","stairs","stair","ramp","step","ledge","pillar","column","water","lava","sky","void","invisible","decor","window","glass","roof","tile","plank","board","brick","spawn","prop","ambient"}
+local function isObj(i)
+    if not(i and i.Parent) then return nil end
+    local low=i.Name:lower();for _,k in ipairs(BL) do if low:find(k,1,true) then return nil end end
+    local part=(i:IsA("BasePart") and not i:IsA("Terrain") and i) or (i:IsA("Model") and (i.PrimaryPart or i:FindFirstChildWhichIsA("BasePart")));if not part then return nil end
+    for _,p in ipairs(PL:GetPlayers()) do if p.Character and (p.Character==i or part:IsDescendantOf(p.Character)) then return nil end end
+    local pm=i:IsA("Model") and i or (i.Parent and i.Parent:IsA("Model") and i.Parent or nil);if pm and isEnt(pm) then return nil end
+    local pp=i:FindFirstChild("ProximityPrompt",true);if pp then return pp.ActionText~="" and pp.ActionText or "Interact" end
+    if i:FindFirstChild("ClickDetector",true) then return "Click" end
+    for _,tag in ipairs(C.objTags) do if CS:HasTag(i,tag) then return tag end end
+    for _,a in ipairs({"Interactable","CanPickup","IsItem","ItemType","CanCollect","Lootable"}) do local v=i:GetAttribute(a);if v then return tostring(v) end end
+    for _,ch in ipairs(i:GetDescendants()) do if ch:IsA("Script") or ch:IsA("LocalScript") then local n=ch.Name:lower();if n:find("interact") or n:find("pickup") or n:find("item") or n:find("loot") then return "Script" end end end
+    if math.max(part.Size.X,part.Size.Y,part.Size.Z)<=12 and part.Anchored then local pn=(i.Parent and i.Parent.Name:lower()) or "";if not(pn:find("map") or pn:find("world") or pn:find("environment") or pn:find("terrain")) then return "Object" end end
+    return nil
+end
+local function rebE() eC2={};for _,o in ipairs(workspace:GetDescendants()) do if o:IsA("Model") and o.Parent then eC2[o]=isEnt(o) end end end
+local function rebO() oC2={};for _,o in ipairs(workspace:GetDescendants()) do if not o.Parent then continue end;if o:IsA("BasePart") and o.Parent and o.Parent:IsA("Model") then continue end;local l=isObj(o);if l then oC2[o]=l end end end
+workspace.DescendantAdded:Connect(function(o) if o:IsA("Model") then eC2[o]=nil;oC2[o]=nil elseif o:IsA("BasePart") then oC2[o]=nil end end)
+workspace.DescendantRemoving:Connect(function(o) eC2[o]=nil;oC2[o]=nil;rmESP(o) end)
+
+-- ESP updates
+local function updP()
+    local act={}
+    for _,pl in ipairs(PL:GetPlayers()) do
+        if pl==LP then continue end
+        local ch=pl.Character;local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+        if not hrp then if ch then rmESP(ch) end;continue end
+        act[ch]=true;local d=dst(hrp.Position)
+        if C.player and C.on and d<=C.maxD then
+            addHL(ch,C.pC);if C.hitbox then addHB(ch) else rmHB(ch) end
+            if C.info then local hum=ch:FindFirstChildOfClass("Humanoid");local bd=addBB(ch,pl.DisplayName,C.pC);if bd then bd.dl.Text=hum and string.format("%s %.0f/%.0f %dm",hpb(hum.Health,hum.MaxHealth),hum.Health,hum.MaxHealth,d) or string.format("%dm",d) end end
+        else rmESP(ch) end
+    end
+    clean(function(i) return i:IsA("Model") and not act[i] and not isPC(i) and not i.Parent end)
+end
+local function updE()
+    local sc={}
+    for inst,v in pairs(eC2) do
+        if not v or not inst.Parent then continue end
+        local p=inst.PrimaryPart or inst:FindFirstChildWhichIsA("BasePart");if not p then continue end
+        sc[inst]=true;local d=dst(p.Position)
+        if C.entity and C.on and d<=C.maxD then
+            addHL(inst,C.eC);if C.hitbox then addHB(inst) else rmHB(inst) end
+            if C.info then local hum=inst:FindFirstChildOfClass("Humanoid");local hp=hum and hum.Health or inst:GetAttribute("Health") or inst:GetAttribute("HP");local mhp=hum and hum.MaxHealth or inst:GetAttribute("MaxHealth") or hp;local bd=addBB(inst,inst.Name,C.eC);if bd then bd.dl.Text=(hp and mhp and mhp>0) and string.format("%s %.0f/%.0f %dm",hpb(hp,mhp),hp,mhp,d) or string.format("%dm",d) end end
+        else rmESP(inst) end
+    end
+    clean(function(i) return i:IsA("Model") and not isPC(i) and not sc[i] and not i.Parent end)
+end
+local function updO()
+    local sc={}
+    for inst,lbl in pairs(oC2) do
+        if not inst.Parent then continue end;local p=root(inst);if not p then continue end
+        sc[inst]=true;local d=dst(p.Position)
+        if C.object and C.on and d<=C.maxD then
+            addHL(inst:IsA("Model") and inst or p,C.oC);if C.hitbox then addHB(inst) else rmHB(inst) end
+            if C.info then local bd=addBB(inst,inst.Name,C.oC);if bd then bd.dl.Text=string.format("%s %dm",lbl,d) end end
+        else rmESP(inst);rmESP(p) end
+    end
+    clean(function(i) return not sc[i] and not i.Parent end)
+end
+
+-- Aim Assist
+local Camera=workspace.CurrentCamera
+local fovSG
+
+local function makeFovCircle()
+    if fovSG then fovSG:Destroy();fovSG=nil end
+    if not C.aimOn then return end
+    fovSG=Instance.new("ScreenGui",LP.PlayerGui);fovSG.Name="ESP_FOV";fovSG.ResetOnSpawn=false;fovSG.IgnoreGuiInset=true;fovSG.DisplayOrder=99
+    local sz=C.aimFov*4
+    local f=Instance.new("Frame",fovSG);f.Size=UDim2.new(0,sz,0,sz);f.AnchorPoint=Vector2.new(.5,.5);f.Position=UDim2.new(.5,0,.5,0);f.BackgroundTransparency=1;f.BorderSizePixel=0
+    Instance.new("UICorner",f).CornerRadius=UDim.new(1,0)
+    local st=Instance.new("UIStroke",f);st.Color=Color3.fromRGB(255,255,255);st.Thickness=1.2;st.Transparency=0.4
+    fovSG._frame=f
+end
+
+local function updAim(dt)
+    if not C.aimOn then return end
+    local vp=Camera.ViewportSize;local center=Vector2.new(vp.X/2,vp.Y/2)
+    local fovPx=C.aimFov*2
+    local best,bestD=nil,math.huge
+    local function check(hrp)
+        local sp,vis=Camera:WorldToScreenPoint(hrp.Position)
+        if not vis then return end
+        local sd=(Vector2.new(sp.X,sp.Y)-center).Magnitude
+        if sd<fovPx and sd<bestD then bestD=sd;best=hrp end
+    end
+    if C.aimPlayer then
+        for _,pl in ipairs(PL:GetPlayers()) do
+            if pl==LP then continue end
+            local ch=pl.Character;local hrp=ch and ch:FindFirstChild("HumanoidRootPart");local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+            if hrp and hum and hum.Health>0 then check(hrp) end
+        end
+    end
+    if C.aimEntity then
+        for inst,v in pairs(eC2) do
+            if not v or not inst.Parent then continue end
+            local p=inst.PrimaryPart or inst:FindFirstChildWhichIsA("BasePart");if p then check(p) end
+        end
+    end
+    if best then
+        local t=1-math.pow(C.aimSmooth/100,dt*60)  -- smoothness: 1=snap, 100=very slow
+        local cf=Camera.CFrame
+        local dir=(best.Position-cf.Position).Unit
+        local newCF=CFrame.new(cf.Position,cf.Position+dir)
+        Camera.CFrame=cf:Lerp(newCF,math.clamp(t,0.01,1))
+    end
+end
+
+-- UI
+local COL={bg=Color3.fromRGB(28,28,30),pg=Color3.fromRGB(34,34,37),row=Color3.fromRGB(40,40,43),sec=Color3.fromRGB(32,32,34),txt=Color3.fromRGB(230,230,232),sub=Color3.fromRGB(110,110,115),div=Color3.fromRGB(48,48,52),swOff=Color3.fromRGB(58,58,62),swOn=Color3.fromRGB(232,232,235),swOnBg=Color3.fromRGB(85,85,90),tab=Color3.fromRGB(38,38,42),tabSel=Color3.fromRGB(52,52,56)}
+
+local function buildUI()
+    local old=LP.PlayerGui:FindFirstChild("ESP_UI");if old then old:Destroy() end
+    local oldF=LP.PlayerGui:FindFirstChild("ESP_FAB");if oldF then oldF:Destroy() end
+    local mob=UIS.TouchEnabled
+    -- Layout: 480 wide, left sidebar tabs 90px, right content 390px, height 300px
+    local W,H,TW,CH=480,310,90,274
+    local sg=Instance.new("ScreenGui",LP.PlayerGui);sg.Name="ESP_UI";sg.ResetOnSpawn=false;sg.IgnoreGuiInset=true;sg.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;sg.DisplayOrder=100
+
+    local panel=Instance.new("Frame",sg);panel.Size=UDim2.new(0,W,0,H);panel.Position=UDim2.new(0.5,-W/2,0.5,-H/2);panel.BackgroundColor3=COL.bg;panel.BorderSizePixel=0;panel.Active=true;panel.Draggable=true;panel.Visible=not mob
+    Instance.new("UICorner",panel).CornerRadius=UDim.new(0,10)
+
+    -- Title strip
+    local title=Instance.new("Frame",panel);title.Size=UDim2.new(1,0,0,36);title.BackgroundColor3=COL.bg;title.BorderSizePixel=0
+    Instance.new("UICorner",title).CornerRadius=UDim.new(0,10)
+    local tfix=Instance.new("Frame",title);tfix.Size=UDim2.new(1,0,.5,0);tfix.Position=UDim2.new(0,0,.5,0);tfix.BackgroundColor3=COL.bg;tfix.BorderSizePixel=0
+    local tlbl=Instance.new("TextLabel",title);tlbl.Size=UDim2.new(1,-12,1,0);tlbl.Position=UDim2.new(0,12,0,0);tlbl.BackgroundTransparency=1;tlbl.TextColor3=COL.txt;tlbl.Font=Enum.Font.GothamBold;tlbl.TextSize=13;tlbl.TextXAlignment=Enum.TextXAlignment.Left;tlbl.Text="ESP"
+    local hdiv=Instance.new("Frame",panel);hdiv.Size=UDim2.new(1,0,0,1);hdiv.Position=UDim2.new(0,0,0,36);hdiv.BackgroundColor3=COL.div;hdiv.BorderSizePixel=0
+
+    -- Left sidebar
+    local sidebar=Instance.new("Frame",panel);sidebar.Size=UDim2.new(0,TW,0,CH);sidebar.Position=UDim2.new(0,0,0,37);sidebar.BackgroundColor3=COL.sec;sidebar.BorderSizePixel=0
+    local sdiv=Instance.new("Frame",panel);sdiv.Size=UDim2.new(0,1,0,CH);sdiv.Position=UDim2.new(0,TW,0,37);sdiv.BackgroundColor3=COL.div;sdiv.BorderSizePixel=0
+    local sLayout=Instance.new("UIListLayout",sidebar);sLayout.SortOrder=Enum.SortOrder.LayoutOrder;sLayout.Padding=UDim.new(0,0)
+
+    -- Right content
+    local content=Instance.new("ScrollingFrame",panel);content.Size=UDim2.new(1,-TW-1,0,CH);content.Position=UDim2.new(0,TW+1,0,37);content.BackgroundTransparency=1;content.BorderSizePixel=0;content.ScrollBarThickness=2;content.ScrollBarImageColor3=COL.div;content.AutomaticCanvasSize=Enum.AutomaticSize.Y;content.CanvasSize=UDim2.new(0,0,0,0)
+    local cLayout=Instance.new("UIListLayout",content);cLayout.SortOrder=Enum.SortOrder.LayoutOrder;cLayout.Padding=UDim.new(0,0)
+
+    -- Pages (frames inside content, only one visible at a time)
+    local pages={}
+    local function makePage(name)
+        local f=Instance.new("Frame",content);f.Size=UDim2.new(1,0,0,0);f.AutomaticSize=Enum.AutomaticSize.Y;f.BackgroundTransparency=1;f.BorderSizePixel=0;f.Visible=false
+        local l=Instance.new("UIListLayout",f);l.SortOrder=Enum.SortOrder.LayoutOrder;l.Padding=UDim.new(0,0)
+        pages[name]=f;return f
+    end
+    local espPage=makePage("esp")
+    local aimPage=makePage("aim")
+    espPage.Visible=true  -- default
+
+    -- Tab buttons
+    local tabBtns={}
+    local curTab="esp"
+    local function mkTab(label,pageName,order)
+        local b=Instance.new("TextButton",sidebar);b.Size=UDim2.new(1,0,0,42);b.BackgroundColor3=pageName==curTab and COL.tabSel or COL.tab;b.BorderSizePixel=0;b.AutoButtonColor=false;b.LayoutOrder=order
+        local tl=Instance.new("TextLabel",b);tl.Size=UDim2.new(1,0,1,0);tl.BackgroundTransparency=1;tl.TextColor3=pageName==curTab and COL.txt or COL.sub;tl.Font=Enum.Font.GothamSemibold;tl.TextSize=12;tl.Text=label
+        tabBtns[pageName]={btn=b,lbl=tl}
+        b.MouseButton1Click:Connect(function()
+            if curTab==pageName then return end
+            -- hide old
+            if pages[curTab] then pages[curTab].Visible=false end
+            TS:Create(tabBtns[curTab].btn,TweenInfo.new(.12),{BackgroundColor3=COL.tab}):Play()
+            TS:Create(tabBtns[curTab].lbl,TweenInfo.new(.12),{TextColor3=COL.sub}):Play()
+            -- show new
+            curTab=pageName
+            pages[curTab].Visible=true
+            TS:Create(b,TweenInfo.new(.12),{BackgroundColor3=COL.tabSel}):Play()
+            TS:Create(tl,TweenInfo.new(.12),{TextColor3=COL.txt}):Play()
+        end)
+    end
+    mkTab("ESP",  "esp", 1)
+    mkTab("Aim",  "aim", 2)
+
+    -- Widget builders (target a specific page frame)
+    local function mkToggle(page,label,gF,sF,extra)
+        local row=Instance.new("Frame",page);row.Size=UDim2.new(1,0,0,40);row.BackgroundColor3=COL.row;row.BorderSizePixel=0
+        local dv=Instance.new("Frame",row);dv.Size=UDim2.new(1,-20,0,1);dv.Position=UDim2.new(0,10,1,-1);dv.BackgroundColor3=COL.div;dv.BorderSizePixel=0
+        local lbl=Instance.new("TextLabel",row);lbl.Size=UDim2.new(.7,0,1,0);lbl.Position=UDim2.new(0,12,0,0);lbl.BackgroundTransparency=1;lbl.TextColor3=COL.txt;lbl.Font=Enum.Font.Gotham;lbl.TextSize=12;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.Text=label
+        local track=Instance.new("Frame",row);track.Size=UDim2.new(0,34,0,18);track.Position=UDim2.new(1,-46,0.5,-9);track.BackgroundColor3=gF() and COL.swOnBg or COL.swOff;track.BorderSizePixel=0;Instance.new("UICorner",track).CornerRadius=UDim.new(1,0)
+        local knob=Instance.new("Frame",track);knob.Size=UDim2.new(0,12,0,12);knob.Position=gF() and UDim2.new(1,-15,0.5,-6) or UDim2.new(0,3,0.5,-6);knob.BackgroundColor3=gF() and COL.swOn or Color3.fromRGB(140,140,145);knob.BorderSizePixel=0;Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
+        local btn=Instance.new("TextButton",row);btn.Size=UDim2.fromScale(1,1);btn.BackgroundTransparency=1;btn.Text=""
+        btn.MouseButton1Click:Connect(function()
+            local on=not gF();sF(on);if extra and not on then extra() end
+            TS:Create(track,TweenInfo.new(.13),{BackgroundColor3=on and COL.swOnBg or COL.swOff}):Play()
+            TS:Create(knob,TweenInfo.new(.13),{Position=on and UDim2.new(1,-15,0.5,-6) or UDim2.new(0,3,0.5,-6),BackgroundColor3=on and COL.swOn or Color3.fromRGB(140,140,145)}):Play()
+        end)
+    end
+    local function mkSlider(page,label,gF,sF,minV,maxV,onChange)
+        local row=Instance.new("Frame",page);row.Size=UDim2.new(1,0,0,50);row.BackgroundColor3=COL.row;row.BorderSizePixel=0
+        local dv=Instance.new("Frame",row);dv.Size=UDim2.new(1,-20,0,1);dv.Position=UDim2.new(0,10,1,-1);dv.BackgroundColor3=COL.div;dv.BorderSizePixel=0
+        local lbl=Instance.new("TextLabel",row);lbl.Size=UDim2.new(.6,0,0,22);lbl.Position=UDim2.new(0,12,0,4);lbl.BackgroundTransparency=1;lbl.TextColor3=COL.txt;lbl.Font=Enum.Font.Gotham;lbl.TextSize=12;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.Text=label
+        local vLbl=Instance.new("TextLabel",row);vLbl.Size=UDim2.new(.35,0,0,22);vLbl.Position=UDim2.new(.65,-10,0,4);vLbl.BackgroundTransparency=1;vLbl.TextColor3=COL.sub;vLbl.Font=Enum.Font.Gotham;vLbl.TextSize=12;vLbl.TextXAlignment=Enum.TextXAlignment.Right;vLbl.Text=tostring(gF())
+        local tr=Instance.new("Frame",row);tr.Size=UDim2.new(1,-20,0,3);tr.Position=UDim2.new(0,10,0,34);tr.BackgroundColor3=COL.swOff;tr.BorderSizePixel=0;Instance.new("UICorner",tr).CornerRadius=UDim.new(1,0)
+        local fl=Instance.new("Frame",tr);fl.Size=UDim2.new((gF()-minV)/(maxV-minV),0,1,0);fl.BackgroundColor3=COL.swOn;fl.BorderSizePixel=0;Instance.new("UICorner",fl).CornerRadius=UDim.new(1,0)
+        local btn=Instance.new("TextButton",tr);btn.Size=UDim2.fromScale(1,1);btn.BackgroundTransparency=1;btn.Text=""
+        local drag=false
+        local function slide(mx) local pct=math.clamp((mx-tr.AbsolutePosition.X)/tr.AbsoluteSize.X,0,1);local val=math.floor(minV+pct*(maxV-minV));sF(val);fl.Size=UDim2.new(pct,0,1,0);vLbl.Text=tostring(val);if onChange then onChange(val) end end
+        btn.InputBegan:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then drag=true;slide(inp.Position.X) end end)
+        UIS.InputChanged:Connect(function(inp) if drag and (inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch) then slide(inp.Position.X) end end)
+        UIS.InputEnded:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then drag=false end end)
+    end
+
+    -- ESP page items
+    mkToggle(espPage,"ESP  [Z]",       function()return C.on     end,function(v)C.on=v;     if not v then clrAll() end end)
+    mkToggle(espPage,"Player  [X]",    function()return C.player end,function(v)C.player=v end)
+    mkToggle(espPage,"Entity  [C]",    function()return C.entity end,function(v)C.entity=v end)
+    mkToggle(espPage,"Object  [V]",    function()return C.object end,function(v)C.object=v end)
+    mkToggle(espPage,"Info  [B]",      function()return C.info   end,function(v)C.info=v;   if not v then clrBB() end end)
+    mkToggle(espPage,"Hitbox  [N]",    function()return C.hitbox end,function(v)C.hitbox=v; if not v then clrHB() end end)
+    mkSlider(espPage,"Fill Opacity",   function()return C.alpha  end,function(v)C.alpha=v  end,0,25,function() rfAlpha() end)
+
+    -- Aim page items
+    mkToggle(aimPage,"Aim Assist  [G]",function()return C.aimOn     end,function(v)C.aimOn=v;     makeFovCircle() end)
+    mkToggle(aimPage,"Aim Player",     function()return C.aimPlayer end,function(v)C.aimPlayer=v end)
+    mkToggle(aimPage,"Aim Entity",     function()return C.aimEntity end,function(v)C.aimEntity=v end)
+    mkSlider(aimPage,"FOV",            function()return C.aimFov    end,function(v)C.aimFov=v    end,1,100,function(v)
+        if fovSG and fovSG._frame then local sz=v*4;fovSG._frame.Size=UDim2.new(0,sz,0,sz) end
+    end)
+    mkSlider(aimPage,"Smoothness",     function()return C.aimSmooth end,function(v)C.aimSmooth=v end,1,100)
+
+    -- Bottom bar
+    local bot=Instance.new("Frame",panel);bot.Size=UDim2.new(1,0,0,1);bot.Position=UDim2.new(0,0,0,H-1);bot.BackgroundColor3=COL.div;bot.BorderSizePixel=0
+
+    -- Mobile FAB
+    if mob then
+        local fsg=Instance.new("ScreenGui",LP.PlayerGui);fsg.Name="ESP_FAB";fsg.ResetOnSpawn=false;fsg.IgnoreGuiInset=true;fsg.DisplayOrder=101
+        local FAB=Instance.new("TextButton",fsg);FAB.Size=UDim2.new(0,64,0,64);FAB.Position=UDim2.new(0,14,1,-82);FAB.BackgroundColor3=COL.bg;FAB.BorderSizePixel=0;FAB.AutoButtonColor=false
+        Instance.new("UICorner",FAB).CornerRadius=UDim.new(0,14)
+        local fs=Instance.new("UIStroke",FAB);fs.Color=COL.div;fs.Thickness=1.5
+        local fl=Instance.new("TextLabel",FAB);fl.Size=UDim2.new(1,0,0,16);fl.Position=UDim2.new(0,0,1,-18);fl.BackgroundTransparency=1;fl.TextColor3=COL.txt;fl.Font=Enum.Font.GothamBold;fl.TextSize=11;fl.Text="Menu"
+        local function mkLn(y) local l=Instance.new("Frame",FAB);l.Size=UDim2.new(0,28,0,2);l.Position=UDim2.new(0.5,-14,0,y);l.BackgroundColor3=COL.txt;l.BorderSizePixel=0;Instance.new("UICorner",l).CornerRadius=UDim.new(1,0) end
+        mkLn(16);mkLn(23);mkLn(30)
+        local aInp,fPos,tPos=nil,nil,nil
+        FAB.InputBegan:Connect(function(inp) if inp.UserInputType~=Enum.UserInputType.Touch then return end;aInp=inp;fPos=FAB.Position;tPos=Vector2.new(inp.Position.X,inp.Position.Y) end)
+        FAB.InputChanged:Connect(function(inp) if inp~=aInp then return end;FAB.Position=UDim2.new(fPos.X.Scale,fPos.X.Offset+(inp.Position.X-tPos.X),fPos.Y.Scale,fPos.Y.Offset+(inp.Position.Y-tPos.Y)) end)
+        FAB.InputEnded:Connect(function(inp)
+            if inp~=aInp then return end
+            if math.abs(inp.Position.X-tPos.X)<10 and math.abs(inp.Position.Y-tPos.Y)<10 then
+                local open=not panel.Visible;panel.Visible=open
+                TS:Create(FAB,TweenInfo.new(.12),{BackgroundColor3=open and COL.pg or COL.bg}):Play()
+                fs.Color=open and COL.sub or COL.div
+            end
+            aInp=nil
+        end)
+    end
+
+    UIS.InputBegan:Connect(function(inp,gpe)
+        if gpe then return end;local k=inp.KeyCode
+        if     k==Enum.KeyCode.Z then C.on=not C.on;      if not C.on then clrAll() end
+        elseif k==Enum.KeyCode.X then C.player=not C.player
+        elseif k==Enum.KeyCode.C then C.entity=not C.entity
+        elseif k==Enum.KeyCode.V then C.object=not C.object
+        elseif k==Enum.KeyCode.B then C.info=not C.info;   if not C.info   then clrBB() end
+        elseif k==Enum.KeyCode.N then C.hitbox=not C.hitbox;if not C.hitbox then clrHB() end
+        elseif k==Enum.KeyCode.G then C.aimOn=not C.aimOn; makeFovCircle()
+        end
+    end)
+end
+
+-- Main
+buildUI();rebE();rebO()
+RS.Heartbeat:Connect(function(dt)
+    local now=tick()
+    if now-tP>=C.pR then tP=now;pcall(updP) end
+    if not C.on then return end
+    if now-tE>=C.eR then tE=now;pcall(rebE) end;pcall(updE)
+    if now-tO>=C.oR then tO=now;pcall(rebO) end;pcall(updO)
+    if C.aimOn then pcall(updAim,dt) end
+end)
+PL.PlayerRemoving:Connect(function(p) if p.Character then rmESP(p.Character) end end)
+print("[ESP] Z X C V B N G | Aim: G=toggle")
