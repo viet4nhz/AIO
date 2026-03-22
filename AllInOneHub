@@ -2,11 +2,11 @@
 local PL,RS,UIS,TS,CS=game:GetService("Players"),game:GetService("RunService"),game:GetService("UserInputService"),game:GetService("TweenService"),game:GetService("CollectionService")
 local LP=PL.LocalPlayer
 local C={
-    on=true,info=true,hitbox=false,player=true,entity=true,object=true,
+    on=false,info=false,hitbox=false,player=false,entity=false,object=false,
     pC=Color3.fromRGB(220,80,80),eC=Color3.fromRGB(210,140,50),oC=Color3.fromRGB(80,190,120),hC=Color3.fromRGB(220,220,220),
     alpha=10,maxD=500,pR=0.1,eR=2,oR=5,
     objTags={"Interactable","Pickup","Item","Chest","Door","Loot","Collectible"},
-    aimOn=false,aimPlayer=true,aimEntity=true,aimFov=50,aimSmooth=50,
+    aimOn=false,aimPlayer=false,aimEntity=false,aimFov=50,aimSmooth=50,
 }
 local HL,HB,BB,eC2,oC2,tP,tE,tO={},{},{},{},{},0,0,0
 
@@ -269,12 +269,18 @@ local function buildUI()
     local sidebar=Instance.new("Frame",panel);sidebar.Size=UDim2.new(0,TW,0,CH);sidebar.Position=UDim2.new(0,0,0,37);sidebar.BackgroundColor3=COL.sec;sidebar.BorderSizePixel=0
     Instance.new("UIListLayout",sidebar).SortOrder=Enum.SortOrder.LayoutOrder
     local sdiv=Instance.new("Frame",panel);sdiv.Size=UDim2.new(0,1,0,CH);sdiv.Position=UDim2.new(0,TW,0,37);sdiv.BackgroundColor3=COL.div;sdiv.BorderSizePixel=0
-    local content=Instance.new("ScrollingFrame",panel);content.Size=UDim2.new(1,-TW-1,0,CH);content.Position=UDim2.new(0,TW+1,0,37);content.BackgroundTransparency=1;content.BorderSizePixel=0;content.ScrollBarThickness=2;content.ScrollBarImageColor3=COL.div;content.AutomaticCanvasSize=Enum.AutomaticSize.Y;content.CanvasSize=UDim2.new(0,0,0,0)
-    Instance.new("UIListLayout",content).SortOrder=Enum.SortOrder.LayoutOrder
-
-    -- Pages
+    -- FIX: pages are separate ScrollingFrames at same absolute position (not stacked)
     local pages={}
-    local function mkPage(name) local f=Instance.new("Frame",content);f.Size=UDim2.new(1,0,0,0);f.AutomaticSize=Enum.AutomaticSize.Y;f.BackgroundTransparency=1;f.BorderSizePixel=0;f.Visible=false;Instance.new("UIListLayout",f).SortOrder=Enum.SortOrder.LayoutOrder;pages[name]=f;return f end
+    local function mkPage(name)
+        local sf=Instance.new("ScrollingFrame",panel)
+        sf.Size=UDim2.new(1,-TW-1,0,CH);sf.Position=UDim2.new(0,TW+1,0,37)
+        sf.BackgroundTransparency=1;sf.BorderSizePixel=0
+        sf.ScrollBarThickness=2;sf.ScrollBarImageColor3=COL.div
+        sf.AutomaticCanvasSize=Enum.AutomaticSize.Y;sf.CanvasSize=UDim2.new(0,0,0,0)
+        sf.Visible=false
+        Instance.new("UIListLayout",sf).SortOrder=Enum.SortOrder.LayoutOrder
+        pages[name]=sf;return sf
+    end
     local espPg=mkPage("esp");local aimPg=mkPage("aim");local cmdPg=mkPage("cmd");local crePg=mkPage("cre")
     espPg.Visible=true
 
@@ -287,7 +293,7 @@ local function buildUI()
         b.MouseButton1Click:Connect(function()
             if curTab==pg then return end
             if pages[curTab] then pages[curTab].Visible=false end
-            TS:Create(tabBtns[curTab].b,TweenInfo.new(.12),{BackgroundColor3=COL.tab}):Play();TS:Create(tabBtns[curTab].t,TweenenInfo.new(.12),{BackgroundColor3=COL.tab}):Play();TS:Create(tabBtns[curTab].t,TweenInfo.new(.12),{TextColor3=COL.sub}):Play()
+            TS:Create(tabBtns[curTab].b,TweenInfo.new(.12),{BackgroundColor3=COL.tab}):Play();TS:Create(tabBtns[curTab].t,TweenInfo.new(.12),{TextColor3=COL.sub}):Play()
             curTab=pg;pages[curTab].Visible=true
             TS:Create(b,TweenInfo.new(.12),{BackgroundColor3=COL.tabSel}):Play();TS:Create(tl,TweenInfo.new(.12),{TextColor3=COL.txt}):Play()
         end)
