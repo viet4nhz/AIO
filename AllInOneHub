@@ -372,7 +372,13 @@ local function buildUI()
         local txt=tb.Text;if txt=="" then return end
         addLog("> "..txt, COL.txt);runCmd(txt,function(m) addLog("  "..m) end);tb.Text=""
     end
-    tb.FocusLost:Connect(function(enter) if enter then exec() end end)
+    tb.FocusLost:Connect(function(enter)
+        if enter then
+            exec()  -- PC Enter key
+        elseif mob and tb.Text ~= "" then
+            exec()  -- Mobile send/go button (fires FocusLost with enter=false)
+        end
+    end)
 
     -- Divider
     local dvTut=Instance.new("Frame",cmdPg);dvTut.Size=UDim2.new(1,0,0,1);dvTut.BackgroundColor3=COL.div;dvTut.BorderSizePixel=0
