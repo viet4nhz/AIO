@@ -517,33 +517,20 @@ local function saveToExec(name,code)
  return true
 end
 -- Luna-exact open/close: fade panel BG + UIStroke only
--- Children fade via their own rowAppear() calls on tab switch
--- This matches Luna's simple tween(Window, {BackgroundTransparency=1}) approach
+-- CanvasGroup approach: GroupTransparency tweens entire panel as one layer
+-- Roblox docs: "tween GroupTransparency to affect object's overall transparency"
+-- No per-child tweening needed = smooth, no gray bleed, no jank
 local function panelHide(p)
- -- Fade out: text goes first, then background
- local TI_H=TweenInfo.new(0.25,Enum.EasingStyle.Exponential)
- for _,c in ipairs(p:GetDescendants()) do
-  if c:IsA("TextLabel") or c:IsA("TextButton") or c:IsA("TextBox") then
-   TS:Create(c,TI_H,{TextTransparency=1}):Play()
-  end
- end
- task.delay(0.1,function()
-  TS:Create(p,TweenInfo.new(0.2,Enum.EasingStyle.Exponential),{BackgroundTransparency=1}):Play()
-  task.delay(0.2,function() if p then p.Visible=false;p.BackgroundTransparency=0 end end)
- end)
+ -- Fade out: GroupTransparency 0→1 then hide
+ TS:Create(p,TweenInfo.new(0.28,Enum.EasingStyle.Quint,Enum.EasingDirection.In),
+  {GroupTransparency=1}):Play()
+ task.delay(0.3,function() if p and p.Parent then p.Visible=false;p.GroupTransparency=0 end end)
 end
 local function panelShow(p)
- -- Show panel, then fade in text (no bg tweening on children = no gray glitch)
- p.BackgroundTransparency=1;p.Visible=true
- TS:Create(p,TweenInfo.new(0.35,Enum.EasingStyle.Exponential),{BackgroundTransparency=0}):Play()
- task.delay(0.1,function()
-  for _,c in ipairs(p:GetDescendants()) do
-   if c:IsA("TextLabel") or c:IsA("TextButton") or c:IsA("TextBox") then
-    c.TextTransparency=0.8
-    TS:Create(c,TweenInfo.new(0.3,Enum.EasingStyle.Exponential),{TextTransparency=0}):Play()
-   end
-  end
- end)
+ -- Fade in: show then GroupTransparency 1→0
+ p.GroupTransparency=1;p.Visible=true
+ TS:Create(p,TweenInfo.new(0.35,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),
+  {GroupTransparency=0}):Play()
 end
 local function buildUI()
  local old=LP.PlayerGui:FindFirstChild("AIO_UI");if old then old:Destroy() end
@@ -555,9 +542,10 @@ local function buildUI()
  local sg=Instance.new("ScreenGui",LP.PlayerGui);sg.Name="AIO_UI";sg.ResetOnSpawn=false;sg.IgnoreGuiInset=true;sg.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;sg.DisplayOrder=100
 
  -- Panel
- local panel=Instance.new("Frame",sg)
+ -- CanvasGroup allows GroupTransparency to fade entire panel as one unit
+ local panel=Instance.new("CanvasGroup",sg)
  panel.Size=UDim2.new(0,W,0,H);panel.Position=UDim2.new(.5,-W/2,.5,-H/2)
- panel.BackgroundColor3=K.panel;panel.BackgroundTransparency=0;panel.BorderSizePixel=0;panel.Active=true;panel.Draggable=true
+ panel.BackgroundColor3=K.panel;panel.BorderSizePixel=0;panel.Active=true;panel.Draggable=true
  if not mob then panelShow(panel) else panel.Visible=false end
  local pc=Instance.new("UICorner",panel);pc.CornerRadius=UDim.new(0,12)
   local ps=Instance.new("UIStroke",panel);ps.Color=Color3.fromRGB(64,60,80);ps.Thickness=1.2;ps.Transparency=0.3
@@ -737,7 +725,7 @@ local function buildUI()
  mkSl(espPg,T("fill"),function()return C.alpha end,function(v)C.alpha=v end,0,25,function() rfAlpha() end)
 
  -- ===== Aim page =====
-mkSec(aimPg,T("aim_s"))
+ mkSec(aimPg,T("aim_s"))
  mkSw(aimPg,"Aim [G]",function()return C.aimOn end,function(v)C.aimOn=v;makeFov() end)
  mkSw(aimPg,T("aim_p"),function()return C.aimPlayer end,function(v)C.aimPlayer=v end)
  mkSw(aimPg,T("aim_e"),function()return C.aimEntity end,function(v)C.aimEntity=v end)
@@ -755,7 +743,8 @@ mkSec(aimPg,T("aim_s"))
  local lls={}
  local function addLog(m,c2)
  local tl=Instance.new("TextLabel",logF);tl.Size=UDim2.new(1,-8,0,14);tl.BackgroundTransparency=1;tl.Font=Enum.Font.Code;tl.TextSize=10;tl.TextXAlignment=Enum.TextXAlignment.Left;tl.TextTruncate=Enum.TextTruncate.AtEnd;tl.TextColor3=K.bg;tl.Text=" "..m
- TS:Create(tl,TweenInfo.new(.18,Enum.EasingStyle.Exponential,Enum.EasingDirection.Out),{TextColor3=c2 or K.sub}):Play()
+ tl.TextTransparency=0.9
+ TS:Create(tl,TweenInfo.new(.3,Enum.EasingStyle.Exponential),{TextTransparency=0,TextColor3=c2 or K.sub}):Play()
  table.insert(lls,tl);if #lls>5 then lls[1]:Destroy();table.remove(lls,1) end
  end
  addLog(T("ready"))
